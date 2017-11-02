@@ -1,11 +1,12 @@
 import java.awt.*;
 import java.awt.event.*;  
+import java.io.*;
 public class calculator extends Frame implements ActionListener
 {
 	TextField result;
 	Button add1=new Button("+");
 	Button sub=new Button("-");
-	Button mul=new Button("x");
+	Button mul=new Button("*");
 	Button div=new Button("/");
 	Button one=new Button("1");
 	Button two=new Button("2");
@@ -18,6 +19,7 @@ public class calculator extends Frame implements ActionListener
 	Button nine=new Button("9");
 	Button zero=new Button("0");
 	Button equalsto=new Button("=");
+	Button clear=new Button("AC");
 	Button close=new Button("exit");
 	Label l1=new Label("calculator");
 		final Frame f1=new Frame();
@@ -40,6 +42,7 @@ calculator()
 	eight.addActionListener(this);
 	nine.addActionListener(this);
 	zero.addActionListener(this);
+	clear.addActionListener(this);
 	equalsto.addActionListener(this);
 	
 	close.addActionListener(this);
@@ -48,24 +51,94 @@ calculator()
     f1.add(add1);f1.add(sub);f1.add(mul);f1.add(div);f1.add(close);
     f1.add(one);f1.add(two);f1.add(three);f1.add(four);f1.add(five);f1.add(six);
     f1.add(seven);f1.add(eight);f1.add(nine);f1.add(zero);f1.add(equalsto);
+    f1.add(clear);
 	f1.setLayout(new GridLayout(5,5));
     f1.setVisible(true);
     f1.addWindowListener(new WindowAdapter(){public void windowClosing(WindowEvent e){f1.dispose();}});
 }
-public int evaluate(String s)
-{
-	int l=s.length();int res=0;
-	for(int i=0;i<=l;i++)
-	{
-		if(s.charAt(i)=='+')
-		{}
-	}
-	return 0;
-	}
+public static double evaluate(final String str) {
+    return new Object() {
+        int pos = -1, ch;
+
+        void nextChar() {
+            ch = (++pos < str.length()) ? str.charAt(pos) : -1;
+        }
+
+        boolean eat(int charToEat) {
+            while (ch == ' ') nextChar();
+            if (ch == charToEat) {
+                nextChar();
+                return true;
+            }
+            return false;
+        }
+
+        double parse() {
+            nextChar();
+            double x = parseExpression();
+            if (pos < str.length()) throw new RuntimeException("Unexpected: " + (char)ch);
+            return x;
+        }
+
+        // Grammar:
+        // expression = term | expression `+` term | expression `-` term
+        // term = factor | term `*` factor | term `/` factor
+        // factor = `+` factor | `-` factor | `(` expression `)`
+        //        | number | functionName factor | factor `^` factor
+
+        double parseExpression() {
+            double x = parseTerm();
+            for (;;) {
+                if      (eat('+')) x += parseTerm(); // addition
+                else if (eat('-')) x -= parseTerm(); // subtraction
+                else return x;
+            }
+        }
+
+        double parseTerm() {
+            double x = parseFactor();
+            for (;;) {
+                if      (eat('*')) x *= parseFactor(); // multiplication
+                else if (eat('/')) x /= parseFactor(); // division
+                else return x;
+            }
+        }
+
+        double parseFactor() {
+            if (eat('+')) return parseFactor(); // unary plus
+            if (eat('-')) return -parseFactor(); // unary minus
+
+            double x;
+            int startPos = this.pos;
+            if (eat('(')) { // parentheses
+                x = parseExpression();
+                eat(')');
+            } else if ((ch >= '0' && ch <= '9') || ch == '.') { // numbers
+                while ((ch >= '0' && ch <= '9') || ch == '.') nextChar();
+                x = Double.parseDouble(str.substring(startPos, this.pos));
+            } else if (ch >= 'a' && ch <= 'z') { // functions
+                while (ch >= 'a' && ch <= 'z') nextChar();
+                String func = str.substring(startPos, this.pos);
+                x = parseFactor();
+                if (func.equals("sqrt")) x = Math.sqrt(x);
+                else if (func.equals("sin")) x = Math.sin(Math.toRadians(x));
+                else if (func.equals("cos")) x = Math.cos(Math.toRadians(x));
+                else if (func.equals("tan")) x = Math.tan(Math.toRadians(x));
+                else throw new RuntimeException("Unknown function: " + func);
+            } else {
+                throw new RuntimeException("Unexpected: " + (char)ch);
+            }
+
+            if (eat('^')) x = Math.pow(x, parseFactor()); // exponentiation
+
+            return x;
+        }
+    }.parse();
+}
 public void actionPerformed(ActionEvent e)
 {
 	String s1=result.getText();
-	int value=0;
+	double value=0;
 	if(e.getSource()!=equalsto)
 	{
 	if(e.getSource()==one){ s1=s1+"1"; }
@@ -80,10 +153,11 @@ public void actionPerformed(ActionEvent e)
 	if(e.getSource()==zero){ s1=s1+"0"; }
     if(e.getSource()==add1){ s1=s1+"+";  }
     if(e.getSource()==sub){ s1=s1+"-"; }  
-    if(e.getSource()==mul){ s1=s1+"x"; }  
+    if(e.getSource()==mul){ s1=s1+"*"; }  
      if(e.getSource()==div){  s1=s1+"/"; } 
      result.setText(s1);
 	}
+	if(e.getSource()==clear){result.setText("");}
      if(e.getSource()==equalsto){value=evaluate(s1);result.setText(String.valueOf(value));}
      if(e.getSource()==close){f1.dispose();}
   //    String result1=String.valueOf(c);  
